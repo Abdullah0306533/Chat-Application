@@ -1,23 +1,26 @@
 package com.example.chattingapp
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.mutableStateOf
-import androidx.core.net.toFile
 import androidx.lifecycle.ViewModel
+import androidx.navigation.NavController
 import com.example.chattingapp.data.Event
 import com.example.chattingapp.data.USER_NODE
 import com.example.chattingapp.data.UserData
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.toObject
 import com.google.firebase.storage.FirebaseStorage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import java.util.UUID
 import javax.inject.Inject
-import kotlin.uuid.Uuid
 
 // ViewModel for managing user authentication and related state
 @HiltViewModel
@@ -27,27 +30,20 @@ class LCViewModel @Inject constructor(
     val storage: FirebaseStorage
 ) : ViewModel() {
 
-    // Indicates whether an operation is in progress (e.g., loading state)
-    var inProcess = mutableStateOf(false)
+    // State variables
+    var inProcess = mutableStateOf(false) // Tracks loading state
+    val eventMutableState = mutableStateOf<Event<String>?>(null) // Tracks events
+    val signIn = mutableStateOf(false) // Tracks sign-in state
+    val userData = mutableStateOf<UserData?>(null) // Holds user data
+    val localImagePath = mutableStateOf<String?>(null) // Stores local image path
 
-    // Holds events with a string message for state updates
-    val eventMutableState = mutableStateOf<Event<String>?>(null)
-
-    // Tracks the sign-in state of the user
-    val signIn = mutableStateOf(false)
-
-    // Holds the current user's data
-    val userData = mutableStateOf<UserData?>(null)
-    val localImagePath = mutableStateOf<String?>(null)
-
-
-    // Method to update the local image path
+    // Update local image path
     fun updateLocalImagePath(path: String) {
         localImagePath.value = path
     }
-    // Initializes ViewModel and checks if user is already signed in
+
+    // Initialize ViewModel and check if user is already signed in
     init {
-        //auth.signOut() //used for testing Authentication process
         val currentUser = auth.currentUser
         signIn.value = currentUser != null
         currentUser?.uid?.let {
@@ -55,9 +51,9 @@ class LCViewModel @Inject constructor(
         }
     }
 
-    // Function to sign up a new user with Firebase Authentication
+    // Sign-Up Function (Register a new user)
     fun signUp(name: String, number: String, email: String, password: String) {
-        // Validate password length
+        // Validate inputs
         inProcess.value = true
         if (password.length < 6) {
             eventMutableState.value = Event("Password must be more than 6 characters")
@@ -67,17 +63,18 @@ class LCViewModel @Inject constructor(
             handleException(customMessage = "some thing is empty")
             return
         }
-        inProcess.value = true // Update loading state
+        inProcess.value = true
 
+        // Check if the number already exists
         db.collection(USER_NODE).whereEqualTo("number", number).get()
             .addOnSuccessListener { querySnapshot ->
-                if (!querySnapshot.isEmpty) { // If number already exists
+                if (!querySnapshot.isEmpty) {
                     handleException(customMessage = "Number already exists")
                     inProcess.value = false
-                    return@addOnSuccessListener // Stop further execution
+                    return@addOnSuccessListener
                 }
 
-                // Proceed only if number does not exist
+                // Create user with email and password
                 auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener {
                     if (it.isSuccessful) {
                         signIn.value = true
@@ -88,22 +85,19 @@ class LCViewModel @Inject constructor(
                     inProcess.value = false
                 }
             }.addOnFailureListener {
-            handleException(it, "Failed to check number existence")
-            inProcess.value = false
-        }
-
-
+                handleException(it, "Failed to check number existence")
+                inProcess.value = false
+            }
     }
 
-
-    public fun signIn(email: String, password: String) {
+    // Sign-In Function (Login existing user)
+    fun signIn(email: String, password: String) {
         if (email.isEmpty() or password.isEmpty()) {
             handleException(customMessage = "please fill in all the blocks")
         } else {
             inProcess.value = true
             auth.signInWithEmailAndPassword(email, password).addOnCompleteListener() {
                 if (it.isSuccessful) {
-
                     signIn.value = true
                     inProcess.value = false
                     auth.currentUser?.uid.let {
@@ -118,31 +112,73 @@ class LCViewModel @Inject constructor(
         }
     }
 
-    // Function to create or update the user profile
-    fun createOrUpdateProfile(name: String? = null, number: String? = null, image: String? = null) {
+    // Create or Update Profile
+    fun createOrUpdateProfile(
+        name: String? = null,
+        number: String? = null,
+        image: String? = null
+    ) {
         val uid = auth.currentUser?.uid
-        val userData = UserData(
-        uid,
-        name = name ?: userData.value?.name,
-        userNumber = number ?: userData.value?.userNumber,
-        imageUrl = image ?: userData.value?.imageUrl
+
+        if (uid == null) {
+            handleException(customMessage = "User not authenticated")
+            return
+        }
+
+        if (name.isNullOrEmpty() || number.isNullOrEmpty()) {
+            handleException(customMessage = "Name and Number cannot be empty")
+            return
+        }
+
+        inProcess.value = true
+
+        val updatedUserData = UserData(
+            userId = uid,
+            name = name,
+            userNumber = number,
+            imageUrl = image ?: userData.value?.imageUrl
         )
 
-        uid?.let {
-            inProcess.value = true
-            db.collection(USER_NODE).document(uid).get().addOnSuccessListener {
-                if (!it.exists()) {
-                    db.collection(USER_NODE).document(uid).set(userData)
+        val userDocument = db.collection(USER_NODE).document(uid)
+
+        userDocument.get()
+            .addOnSuccessListener { documentSnapshot ->
+                val task = if (documentSnapshot.exists()) {
+                    userDocument.update(
+                        mapOf(
+                            "name" to name,
+                            "userNumber" to number,
+                            "imageUrl" to updatedUserData.imageUrl
+                        )
+                    )
+                } else {
+                    userDocument.set(updatedUserData)
                 }
-                inProcess.value = false
-                getUserData(uid)
-            }.addOnFailureListener {
-                handleException(it, "Cannot retrieve User")
+
+                task.addOnSuccessListener {
+                    getUserData(uid)
+                    inProcess.value = false
+                    eventMutableState.value = Event(
+                        if (documentSnapshot.exists()) "Profile updated successfully" else "Profile created successfully"
+                    )
+                }.addOnFailureListener {
+                    handleException(it, "Failed to save profile")
+                    inProcess.value = false
+                }
             }
-        }
+            .addOnFailureListener {
+                handleException(it, "Error checking profile existence")
+                inProcess.value = false
+            }
     }
 
-    // Function to retrieve user data from Firestore
+    //User Logout
+    fun signOut(){
+        auth.signOut()
+        signIn.value=false
+    }
+
+    // Retrieve User Data
     private fun getUserData(uid: String) {
         db.collection(USER_NODE).document(uid).addSnapshotListener { value, error ->
             if (value != null) {
@@ -156,81 +192,71 @@ class LCViewModel @Inject constructor(
         }
     }
 
-
-    // Handles exceptions by logging and updating the UI state with an event message
-    fun handleException(exception: Exception? = null, customMessage: String = "") {
-
-
-        Log.d("TAG", "Live Chat: Exception occurred", exception) // Log exception details
-        exception?.printStackTrace() // Print stack trace for debugging
-
-        // Get the error message from exception or use a custom message
-        val errorMsg = exception?.localizedMessage ?: ""
-        val message = if (customMessage.isEmpty()) errorMsg else customMessage
-
-        // Update the event state with the error message
-        eventMutableState.value = Event(message)
-    }
-
-    fun uploadProfileImage(uri: Uri) {
-        uploadImage(uri) {
-            createOrUpdateProfile(image = it.toString())
-        }
-    }
-
-
-    fun uploadImage(uri: Uri, onSuccess: (Uri) -> Unit) {
-        // Set the 'inProcess' state to true to indicate that the upload is in progress
-        inProcess.value = true
-
-        // Get a reference to the Firebase Storage
-        val storageRef = storage.reference
-
-        // Generate a unique ID (UUID) for the image file
-        val uuid = UUID.randomUUID()
-
-        // Create a reference in Firebase Storage where the image will be uploaded
-        val imageRef = storageRef.child("images/$uuid")
-
-        // Start the file upload
-        val uploadTask = imageRef.putFile(uri)
-
-        // Add an OnSuccessListener to handle a successful upload
-        uploadTask.addOnSuccessListener {
-            // Once the file is uploaded, retrieve the download URL
-            imageRef.downloadUrl.addOnSuccessListener { downloadUrl ->
-                // Upload successful, set 'inProcess' to false to indicate that the task is completed
-                inProcess.value = false
-
-                // Call the onSuccess callback with the download URL of the uploaded image
-                onSuccess(downloadUrl)
-            }.addOnFailureListener { exception ->
-                // If there's an error in retrieving the download URL, handle the exception
-                handleException(exception)
-                inProcess.value = false
-            }
-        }.addOnFailureListener { exception ->
-            // If there's an error during the upload process, handle the exception
-            handleException(exception)
-            inProcess.value = false
-        }
-    }
-
-
-    fun saveImageToLocalStorage(context: Context, uri: Uri): String? {
+//baad ma
+    fun getImageFromLocalStorage(path: String): Bitmap? {
         return try {
-            val inputStream = context.contentResolver.openInputStream(uri)
-            val file = File(context.filesDir, "profile_${System.currentTimeMillis()}.jpg")
-            inputStream?.use { input ->
-                file.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-            file.absolutePath
+            val file = File(path)
+            if (file.exists()) {
+                BitmapFactory.decodeFile(file.absolutePath)
+            } else null
         } catch (e: Exception) {
-            handleException(e, "Failed to save image locally")
+            e.printStackTrace()
             null
         }
+    }
+
+   /* fun saveProfileImage(uri: Uri, context: Context) {
+        val uid = auth.currentUser?.uid
+        if (uid == null) {
+            handleException(customMessage = "User not authenticated")
+            return
+        }
+
+        // Create a reference for the image file in Firebase Storage
+        val storageRef = storage.reference.child("profile_images/$uid/${UUID.randomUUID()}")
+
+        // Upload the image to Firebase Storage
+        val uploadTask = storageRef.putFile(uri)
+        uploadTask.addOnSuccessListener {
+            // Get the download URL of the uploaded image
+            storageRef.downloadUrl.addOnSuccessListener { downloadUri ->
+                // Save the image URL to Firestore
+                createOrUpdateProfile(image = downloadUri.toString())
+
+                // Save the local image path
+                val localImagePath = saveImageLocally(uri, context)
+                updateLocalImagePath(localImagePath)
+            }
+        }.addOnFailureListener {
+            handleException(it, "Failed to upload image")
+        }
+    }*/
+
+    // Save image locally and return the file path
+    private fun saveImageLocally(uri: Uri, context: Context): String {
+        val inputStream = context.contentResolver.openInputStream(uri)
+        val file = File(context.filesDir, "profile_${System.currentTimeMillis()}.jpg")
+        inputStream?.use { input ->
+            file.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+        return file.absolutePath
+    }
+
+    fun saveProfileImage(uri: Uri, context: Context) {
+        // Save the image URI to update the UI
+        updateLocalImagePath(uri.toString())
+    }
+//
+
+    // Exception Handler
+    fun handleException(exception: Exception? = null, customMessage: String = "") {
+        Log.d("TAG", "Live Chat: Exception occurred", exception)
+        exception?.printStackTrace()
+        val errorMsg = exception?.localizedMessage ?: ""
+        val message = if (customMessage.isEmpty()) errorMsg else customMessage
+        eventMutableState.value = Event(message)
     }
 
 

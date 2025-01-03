@@ -25,10 +25,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.content.MediaType.Companion.Text
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Divider
+import androidx.compose.material3.Text
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.VerticalAlignmentLine
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import coil3.compose.rememberAsyncImagePainter
 import com.airbnb.lottie.compose.*
@@ -176,4 +183,34 @@ fun hasStoragePermission(context: Context): Boolean {
                 android.Manifest.permission.WRITE_EXTERNAL_STORAGE
             ) == PackageManager.PERMISSION_GRANTED
 }
+
+@Composable
+fun TitleText(text: String) {
+    Text(text, fontSize = 35.sp, modifier = Modifier.padding(8.dp))
+}
+@Composable
+fun CommonRow(imageUrl: String?, name: String?, onItemClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(75.dp)
+            .clickable { onItemClick.invoke() },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CommonImage(
+            data = imageUrl,
+            modifier = Modifier
+                .padding(8.dp)
+                .clip(CircleShape)
+                .size(50.dp)
+                .background(Color.Red)
+        )
+        Text(
+            text = name ?: "Unknown User",
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(4.dp)
+        )
+    }
+}
+
 

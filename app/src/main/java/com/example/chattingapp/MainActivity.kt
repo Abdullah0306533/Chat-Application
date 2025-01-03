@@ -103,8 +103,12 @@ class MainActivity : ComponentActivity() {
             }
 
             // Single Chat Screen
-            composable(ScreenDestinations.SingleChat.route) { backStackEntry ->
-                SingleChatScreen()
+            composable(ScreenDestinations.SingleChat.route) {
+                val chatId= it.arguments?.getString("chatId")
+                chatId?.let {
+                    SingleChatScreen(navController,vm,chatId)
+                }
+
             }
 
             // Single Status Screen

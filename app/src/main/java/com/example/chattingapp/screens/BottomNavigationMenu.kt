@@ -44,14 +44,15 @@ fun BottomNavigationMenu(
                 icon = {
                     Box(
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(38.dp)
                             .background(Color.Transparent),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             painter = painterResource(id = item.icon),
                             contentDescription = item.label,
-                            tint = Color(0xFF757575)
+                            tint = Color(0xFF757575),
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 },

@@ -80,7 +80,7 @@ fun ProfileScreen(navController: NavController, vm: LCViewModel, context: Contex
                 onBack = { navigateTo(navController,ScreenDestinations.ChatList.route) },
                 onLogout = {
                     vm.signOut()
-                    navigateTo(navController = navController,ScreenDestinations.ChatList.route)
+                    navigateTo(navController = navController,ScreenDestinations.Login.route)
 
                 },
                 onNumberChange = { number = it },

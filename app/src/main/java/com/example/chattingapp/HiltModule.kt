@@ -1,5 +1,6 @@
 package com.example.chattingapp
 
+import android.content.Context
 import com.google.android.gms.common.internal.safeparcel.SafeParcelable.Class
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
@@ -13,6 +14,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 @Module
 @InstallIn(ViewModelComponent::class)

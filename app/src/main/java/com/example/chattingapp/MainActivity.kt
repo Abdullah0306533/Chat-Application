@@ -1,31 +1,29 @@
 package com.example.chattingapp
 
-// Created and optimized by OpenAI's ChatGPT
-// Assistance provided for permissions handling and navigation structure refinement
-
 import ProfileScreen
 import SignUpScreen
 import android.content.Intent
-import androidx.core.content.ContextCompat
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
-import android.widget.Toast
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.app.ActivityCompat
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.chattingapp.data.ToastUtil
 import com.example.chattingapp.screens.ChatListScreen
 import com.example.chattingapp.screens.LoginScreen
 import com.example.chattingapp.screens.SingleChatScreen
@@ -36,17 +34,16 @@ import dagger.hilt.android.AndroidEntryPoint
 
 // Sealed class for app screen destinations
 sealed class ScreenDestinations(val route: String) {
-    object SignUp : ScreenDestinations("signup")         // Signup screen
-    object Login : ScreenDestinations("login")           // Login screen
-    object Profile : ScreenDestinations("profile")       // Profile screen
-    object ChatList : ScreenDestinations("chatList")     // Chat list screen
+    object SignUp : ScreenDestinations("signup")
+    object Login : ScreenDestinations("login")
+    object Profile : ScreenDestinations("profile")
+    object ChatList : ScreenDestinations("chatList")
     object SingleChat : ScreenDestinations("singleChat/{chatId}") {
-        fun createRoute(id: String) = "singleChat/$id"   // Generate route with chatId
+        fun createRoute(id: String) = "singleChat/$id"
     }
-
-    object StatusList : ScreenDestinations("statusList") // Status list screen
+    object StatusList : ScreenDestinations("statusList")
     object SingleStatus : ScreenDestinations("singleStatus/{userId}") {
-        fun createRoute(id: String) = "singleStatus/$id" // Generate route with userId
+        fun createRoute(id: String) = "singleStatus/$id"
     }
 }
 
@@ -54,16 +51,18 @@ sealed class ScreenDestinations(val route: String) {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        //checkAndRequestPermissions()  // Check and request permissions on app launch
-        enableEdgeToEdge()  // Enables modern edge-to-edge design.
+
+        // Enable modern edge-to-edge design
+        enableEdgeToEdge()
 
         setContent {
             ChattingAppTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background // Background color from theme
+                    color = MaterialTheme.colorScheme.background
                 ) {
-                    ChatAppNavigation()
+                    ChatAppNavigation() // Set up navigation
+                    ToastUtil.init(this)
                 }
             }
         }
@@ -71,11 +70,21 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun ChatAppNavigation() {
-        // Navigation logic
+        // Initialize NavController
         val navController = rememberNavController()
+
+        // Fetch ViewModel inside composable
         val vm = hiltViewModel<LCViewModel>()
 
-        NavHost(navController = navController, startDestination = ScreenDestinations.SignUp.route) {
+        // Determine start destination based on sign-in state
+        val startDestination = if (!vm.signIn.value) {
+            ScreenDestinations.SignUp.route
+        } else {
+            ScreenDestinations.ChatList.route
+        }
+
+        // Navigation host
+        NavHost(navController = navController, startDestination = startDestination) {
 
             // SignUp Screen
             composable(ScreenDestinations.SignUp.route) {
@@ -89,7 +98,7 @@ class MainActivity : ComponentActivity() {
 
             // Profile Screen
             composable(ScreenDestinations.Profile.route) {
-                ProfileScreen(navController = navController, vm, applicationContext)
+                ProfileScreen(navController, vm, applicationContext)
             }
 
             // Chat List Screen
@@ -104,76 +113,16 @@ class MainActivity : ComponentActivity() {
 
             // Single Chat Screen
             composable(ScreenDestinations.SingleChat.route) {
-                val chatId= it.arguments?.getString("chatId")
-                chatId?.let {
-                    SingleChatScreen(navController,vm,chatId)
+                val chatId = it.arguments?.getString("chatId")
+                chatId?.let { id ->
+                    SingleChatScreen(navController, vm, id)
                 }
-
             }
 
             // Single Status Screen
-            composable(ScreenDestinations.SingleStatus.route) { backStackEntry ->
+            composable(ScreenDestinations.SingleStatus.route) {
                 SingleStatusScreen()
             }
         }
     }
 }
-
-//    private fun checkAndRequestPermissions() {
-//        val permissions = arrayOf(
-//            android.Manifest.permission.READ_EXTERNAL_STORAGE,
-//            android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-//        )
-//
-//        // Check if all permissions are granted
-//        val allPermissionsGranted = permissions.all {
-//            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
-//        }
-//
-//        if (allPermissionsGranted) {
-//            // All permissions are granted; no action needed
-//            return
-//        }
-//
-//        val shouldShowRationale = permissions.any {
-//            ActivityCompat.shouldShowRequestPermissionRationale(this, it)
-//        }
-//
-//        if (shouldShowRationale) {
-//            // Request permissions normally if they haven't been permanently denied
-//            requestPermissionsLauncher.launch(permissions)
-//        } else {
-//            // If permissions are permanently denied, navigate to settings
-//            val permanentlyDenied = permissions.any {
-//                ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_DENIED &&
-//                        !ActivityCompat.shouldShowRequestPermissionRationale(this, it)
-//            }
-//
-//            if (permanentlyDenied) {
-//                showPermissionDeniedDialog()
-//            } else {
-//                // Request permissions for the first time
-//                requestPermissionsLauncher.launch(permissions)
-//            }
-//        }
-//    }
-//
-//    private fun showPermissionDeniedDialog() {
-//        Toast.makeText(this, "Permissions are required for app functionality. Please enable them in settings.", Toast.LENGTH_LONG).show()
-//
-//        // Redirect to settings if permissions are permanently denied
-//        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-//            data = Uri.parse("package:${packageName}")
-//        }
-//        startActivity(intent)
-//    }
-//
-//    private val requestPermissionsLauncher =
-//        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-//            val allGranted = permissions.values.all { it }
-//            if (!allGranted) {
-//                // If any permission is denied, close the app (as you requested)
-//                finish()  // Ends the app
-//            }
-//        }
-//}

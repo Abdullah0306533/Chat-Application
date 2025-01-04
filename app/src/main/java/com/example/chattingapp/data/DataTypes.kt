@@ -27,3 +27,8 @@ data class ChatUser(
     val image:String?="",
     val number:String?=""
 )
+data class Message(
+    var sendBy:String ?= "",
+    val message:String ?= "",
+    val timeStamp:String ?= ""
+)

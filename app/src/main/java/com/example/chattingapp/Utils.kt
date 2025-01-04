@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.VerticalAlignmentLine
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
@@ -112,17 +113,24 @@ fun CommonDivider() {
 
 @Composable
 fun CommonImage(
-    data: String?, modifier: Modifier = Modifier.wrapContentSize(),
+    data: String?,
+    modifier: Modifier = Modifier.wrapContentSize(),
     contentScale: ContentScale = ContentScale.Crop
 ) {
-    val painter = rememberAsyncImagePainter(data)
+    val painter = if (!data.isNullOrEmpty()) {
+        rememberAsyncImagePainter(data)
+    } else {
+        painterResource(id = R.drawable.profile) // Load default image if data is null or empty
+    }
+
     Image(
         painter = painter,
-        contentDescription = "",
+        contentDescription = null,
         modifier = modifier,
         contentScale = contentScale
     )
 }
+
 
 // Function to save image locally
 // Function to check and request permissions

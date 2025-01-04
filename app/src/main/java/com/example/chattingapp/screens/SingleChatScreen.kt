@@ -30,9 +30,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.motionEventSpy
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,15 +64,27 @@ fun SingleChatScreen(
         reply = "" // Clear the input field after sending
     }
 
+    val focusRequester = remember { FocusRequester() }
+    var isReplyFocused by remember { mutableStateOf(false) }
+
+    // When user clicks on a message to reply
+    fun onMessageReplyClicked() {
+        isReplyFocused = true // Set focus to true
+    }
+
     // Retrieve user and chat information
     val myUser = vm.userData.value
-    var currentChat = vm.chats.value.first { it.chatId == chatId }
+    val currentChat = vm.chats.value.first { it.chatId == chatId }
     val chatUser =
         if (myUser?.userId == currentChat.user1.userId) currentChat.user2 else currentChat.user1
-    var chatMessage=vm.chatMessages
+    val chatMessages = vm.chatMessages
+
+    // Load messages when screen is launched
     LaunchedEffect(key1 = Unit) {
         vm.populateMessages(chatId)
     }
+
+    // Handle back navigation
     BackHandler {
         vm.dePopulateMessage()
     }
@@ -78,36 +93,107 @@ fun SingleChatScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(bottom = 37.dp)
+            .padding(bottom = 8.dp) // Padding for reply box space
     ) {
         // Chat header at the top
-        ChatHeader(name = chatUser.userName ?: "", imageUrl = chatUser.image ?: "") {
+        ChatHeader(
+            name = chatUser.userName ?: "",
+            imageUrl = chatUser.image ?: ""
+        ) {
             navController.popBackStack()
             vm.dePopulateMessage()
         }
 
-        Spacer(modifier = Modifier.weight(1f)) // Spacer to push reply box to the bottom
+        // Message List using LazyColumn
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f) // Makes LazyColumn take up available space
+                .padding(8.dp),
+            reverseLayout = true // Messages scroll from bottom to top
+        ) {
+            items(chatMessages.value) { msg ->
+                val isCurrentUser = msg.sendBy == (myUser?.userId ?: "")
+                val alignment = if (isCurrentUser) Alignment.End else Alignment.Start
+                val backgroundColor = if (isCurrentUser) Color(0xFF00BFAE) else Color(0xFF6200EE)
+                val textColor = Color.White
 
-        if (myUser != null) {
-            MessageBox(modifier = Modifier.padding(8.dp), chatMessage =chatMessage.value,myUser.userId?:"" )
+                // Animated visibility for messages
+                val messageState = remember { MutableTransitionState(false) }
+                LaunchedEffect(msg) {
+                    messageState.targetState = true
+                }
+
+                AnimatedVisibility(
+                    visibleState = messageState,
+                    enter = slideInHorizontally(
+                        initialOffsetX = { if (isCurrentUser) it else -it },
+                        animationSpec = tween(durationMillis = 500)
+                    ) + fadeIn(animationSpec = tween(durationMillis = 500)),
+                    exit = fadeOut(animationSpec = tween(durationMillis = 500))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = if (isCurrentUser) Arrangement.End else Arrangement.Start
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = backgroundColor,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .padding(12.dp)
+                                .widthIn(max = 300.dp)
+                                .clickable {
+                                    // Trigger reply when message is clicked
+                                    onMessageReplyClicked()
+                                }
+                        ) {
+                            Text(
+                                text = msg.message ?: "",
+                                color = textColor,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            }
         }
 
-        // Reply box for composing and sending messages
+        // Reply box at the bottom
         ReplyBox(
             onReplyChange = { reply = it },
             onSentReply = onSentReply,
-            reply = reply
+            reply = reply,
+            focusRequester = focusRequester,
+            isFocused = isReplyFocused // Trigger focus dynamically
         )
     }
 }
+
+
 
 
 @Composable
 fun ReplyBox(
     onReplyChange: (String) -> Unit,
     onSentReply: () -> Unit,
-    reply: String
+    reply: String,
+    focusRequester: FocusRequester, // FocusRequester for focusing input field
+    isFocused: Boolean // State to trigger focus
 ) {
+    // Keyboard Controller
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Handle focus request when isFocused is true
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            focusRequester.requestFocus() // Request focus
+            keyboardController?.show() // Show keyboard explicitly
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -118,10 +204,7 @@ fun ReplyBox(
             )
             .shadow(2.dp, RoundedCornerShape(8.dp))
             .padding(3.dp)
-
-        //.imePadding() // Adjust for keyboard visibility
     ) {
-        // Classic Divider
         Divider(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
             thickness = 1.dp
@@ -135,13 +218,13 @@ fun ReplyBox(
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Text field for composing a reply
             OutlinedTextField(
                 value = reply,
                 onValueChange = onReplyChange,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(end = 8.dp),
+                    .padding(end = 8.dp)
+                    .focusRequester(focusRequester), // Attach FocusRequester
                 placeholder = {
                     Text(
                         text = "Type a message...",
@@ -162,7 +245,6 @@ fun ReplyBox(
                 )
             )
 
-            // Classic Send Button
             IconButton(
                 onClick = {
                     if (reply.isNotBlank()) {
@@ -183,6 +265,7 @@ fun ReplyBox(
         }
     }
 }
+
 
 // ChatHeader - Displays the chat header at the top of the screen with user details and a back button.
 // It includes a profile picture, user name, and optional online status.

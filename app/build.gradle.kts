@@ -5,6 +5,7 @@ plugins {
     id("com.google.devtools.ksp")
     id ("com.google.dagger.hilt.android")
 
+
     alias(libs.plugins.google.gms.google.services)
 }
 
@@ -91,4 +92,4 @@ dependencies {
     // Coil's OkHttp integration (optional, for network operations)
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
 
-}
+    }

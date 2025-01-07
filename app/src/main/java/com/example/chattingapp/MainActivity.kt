@@ -17,12 +17,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.chattingapp.data.GetContext
 import com.example.chattingapp.data.ToastUtil
 import com.example.chattingapp.screens.ChatListScreen
 import com.example.chattingapp.screens.LoginScreen
@@ -63,6 +65,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     ChatAppNavigation() // Set up navigation
                     ToastUtil.init(this)
+                    GetContext.init(this)
                 }
             }
         }
@@ -72,6 +75,7 @@ class MainActivity : ComponentActivity() {
     fun ChatAppNavigation() {
         // Initialize NavController
         val navController = rememberNavController()
+
 
         // Fetch ViewModel inside composable
         val vm = hiltViewModel<LCViewModel>()
@@ -125,4 +129,5 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 }

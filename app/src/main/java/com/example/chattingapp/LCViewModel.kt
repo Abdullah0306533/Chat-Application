@@ -1,5 +1,6 @@
 package com.example.chattingapp
 
+import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -8,17 +9,23 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.text.isDigitsOnly
+import androidx.credentials.CredentialManager
 import androidx.lifecycle.ViewModel
 import androidx.navigation.NavController
 import com.example.chattingapp.data.CHATS
 import com.example.chattingapp.data.ChatData
 import com.example.chattingapp.data.ChatUser
 import com.example.chattingapp.data.Event
+import com.example.chattingapp.data.GetContext
 import com.example.chattingapp.data.MESSAGE
 import com.example.chattingapp.data.Message
 import com.example.chattingapp.data.ToastUtil
 import com.example.chattingapp.data.USER_NODE
 import com.example.chattingapp.data.UserData
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
+//import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.Filter
@@ -28,6 +35,7 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.toObject
 import com.google.firebase.firestore.toObjects
 import com.google.firebase.storage.FirebaseStorage
+import dagger.hilt.android.flags.HiltWrapper_FragmentGetContextFix_FragmentGetContextFixModule
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import java.io.FileReader
@@ -211,6 +219,18 @@ class LCViewModel @Inject constructor(
         auth.signOut()
         signIn.value = false
     }
+
+
+
+
+
+
+
+
+
+
+
+
 
     // Retrieve User Data
     /**
@@ -459,5 +479,13 @@ class LCViewModel @Inject constructor(
              handleException(it, "Failed to upload image")
          }
      }*/
+
+
+
+
+
+
+
+
 
 }

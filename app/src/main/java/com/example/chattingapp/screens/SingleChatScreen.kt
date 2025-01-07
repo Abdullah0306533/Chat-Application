@@ -1,221 +1,174 @@
 package com.example.chattingapp.screens
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.motionEventSpy
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.chattingapp.CommonDivider
 import com.example.chattingapp.CommonImage
 import com.example.chattingapp.LCViewModel
 import com.example.chattingapp.data.Message
+import java.text.SimpleDateFormat
+import java.util.*
 
-// SingleChatScreen - Displays the main chat screen layout.
-// Includes the chat header, reply box, and handles message sending.
 @Composable
 fun SingleChatScreen(
-    navController: NavController, // Navigation controller for handling back navigation
-    vm: LCViewModel, // ViewModel to handle chat logic
-    chatId: String // ID of the current chat
+    navController: NavController,
+    vm: LCViewModel,
+    chatId: String
 ) {
-    // State to manage the reply text input
-    var reply by rememberSaveable {
-        mutableStateOf("")
-    }
-
-    // Callback for sending a reply
+    var reply by rememberSaveable { mutableStateOf("") }
     val onSentReply = {
         vm.onSendReply(chatId, reply)
-        reply = "" // Clear the input field after sending
+        reply = ""
     }
 
     val focusRequester = remember { FocusRequester() }
-    var isReplyFocused by remember { mutableStateOf(false) }
-
-    // When user clicks on a message to reply
-    fun onMessageReplyClicked() {
-        isReplyFocused = true // Set focus to true
-    }
-
-    // Retrieve user and chat information
     val myUser = vm.userData.value
     val currentChat = vm.chats.value.first { it.chatId == chatId }
-    val chatUser =
-        if (myUser?.userId == currentChat.user1.userId) currentChat.user2 else currentChat.user1
+    val chatUser = if (myUser?.userId == currentChat.user1.userId) currentChat.user2 else currentChat.user1
     val chatMessages = vm.chatMessages
 
-    // Load messages when screen is launched
-    LaunchedEffect(key1 = Unit) {
+    val scrollState = rememberLazyListState()
+
+    LaunchedEffect(chatMessages.value.size) {
         vm.populateMessages(chatId)
+        scrollState.scrollToItem(0)
     }
 
-    // Handle back navigation
-    BackHandler {
-        vm.dePopulateMessage()
-    }
+    BackHandler { vm.dePopulateMessage()
+        navController.popBackStack()}
 
-    // Main layout
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(bottom = 8.dp) // Padding for reply box space
+        modifier = Modifier.fillMaxSize().padding(bottom = 8.dp)
     ) {
-        // Chat header at the top
-        ChatHeader(
-            name = chatUser.userName ?: "",
-            imageUrl = chatUser.image ?: ""
-        ) {
+        ChatHeader(name = chatUser.userName ?: "", imageUrl = chatUser.image ?: "") {
             navController.popBackStack()
             vm.dePopulateMessage()
         }
 
-        // Message List using LazyColumn
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f) // Makes LazyColumn take up available space
-                .padding(8.dp),
-            reverseLayout = true // Messages scroll from bottom to top
-        ) {
-            items(chatMessages.value) { msg ->
-                val isCurrentUser = msg.sendBy == (myUser?.userId ?: "")
-                val alignment = if (isCurrentUser) Alignment.End else Alignment.Start
-                val backgroundColor = if (isCurrentUser) Color(0xFF00BFAE) else Color(0xFF6200EE)
-                val textColor = Color.White
+        MessageBox(
+            modifier = Modifier.weight(1f).padding(8.dp),
+            chatMessages.value,
+            myUser?.userId ?: "",
+            scrollState
+        )
 
-                // Animated visibility for messages
-                val messageState = remember { MutableTransitionState(false) }
-                LaunchedEffect(msg) {
-                    messageState.targetState = true
-                }
+        ReplyBox(
+            onReplyChange = { reply = it },
+            onSentReply = onSentReply,
+            reply = reply,
+            focusRequester = focusRequester
+        )
+    }
+}
 
-                AnimatedVisibility(
-                    visibleState = messageState,
-                    enter = slideInHorizontally(
-                        initialOffsetX = { if (isCurrentUser) it else -it },
-                        animationSpec = tween(durationMillis = 500)
-                    ) + fadeIn(animationSpec = tween(durationMillis = 500)),
-                    exit = fadeOut(animationSpec = tween(durationMillis = 500))
+@Composable
+fun MessageBox(modifier: Modifier, chatMessages: List<Message>, currentUserId: String, scrollState: LazyListState) {
+    LazyColumn(
+        modifier = modifier,
+        state = scrollState,
+        reverseLayout = true
+    ) {
+        items(chatMessages.reversed()) { msg ->
+            val isCurrentUser = msg.sendBy == currentUserId
+            val alignment = if (isCurrentUser) Alignment.End else Alignment.Start
+            val backgroundColor = if (isCurrentUser) Color(0xFF00BFAE) else Color(0xFF6200EE)
+            val textColor = Color.White
+
+            val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
+            val time = sdf.format(Date(msg.timeStamp))
+
+            val messageState = remember { MutableTransitionState(false) }
+            LaunchedEffect(msg) {
+                messageState.targetState = true
+            }
+
+            AnimatedVisibility(
+                visibleState = messageState,
+                enter = slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(durationMillis = 500)
+                ) + fadeIn(animationSpec = tween(durationMillis = 500)),
+                exit = fadeOut(animationSpec = tween(durationMillis = 500))
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = if (isCurrentUser) Arrangement.End else Arrangement.Start
                 ) {
-                    Row(
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        horizontalArrangement = if (isCurrentUser) Arrangement.End else Arrangement.Start
+                            .background(backgroundColor, RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                            .widthIn(max = 300.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    color = backgroundColor,
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .padding(12.dp)
-                                .widthIn(max = 300.dp)
-                                .clickable {
-                                    // Trigger reply when message is clicked
-                                    onMessageReplyClicked()
-                                }
-                        ) {
-                            Text(
-                                text = msg.message ?: "",
-                                color = textColor,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                        Column {
+                            Text(msg.message ?: "", color = textColor, style = MaterialTheme.typography.bodyMedium)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(time, color = textColor.copy(0.7f), fontSize = 12.sp)
                         }
                     }
                 }
             }
         }
-
-        // Reply box at the bottom
-        ReplyBox(
-            onReplyChange = { reply = it },
-            onSentReply = onSentReply,
-            reply = reply,
-            focusRequester = focusRequester,
-            isFocused = isReplyFocused // Trigger focus dynamically
-        )
     }
 }
-
-
-
 
 @Composable
 fun ReplyBox(
     onReplyChange: (String) -> Unit,
     onSentReply: () -> Unit,
     reply: String,
-    focusRequester: FocusRequester, // FocusRequester for focusing input field
-    isFocused: Boolean // State to trigger focus
+    focusRequester: FocusRequester
 ) {
-    // Keyboard Controller
     val keyboardController = LocalSoftwareKeyboardController.current
+    val imeState = remember { mutableStateOf(false) }
+    val sendButtonScale = animateFloatAsState(
+        targetValue = if (reply.isNotBlank()) 1.2f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+    )
 
-    // Handle focus request when isFocused is true
-    LaunchedEffect(isFocused) {
-        if (isFocused) {
-            focusRequester.requestFocus() // Request focus
-            keyboardController?.show() // Show keyboard explicitly
-        }
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
     }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
-            .background(
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(8.dp)
-            )
-            .shadow(2.dp, RoundedCornerShape(8.dp))
-            .padding(3.dp)
+            .imePadding() // Ensures the ReplyBox moves above the keyboard
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        Divider(
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-            thickness = 1.dp
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(24.dp))
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedTextField(
@@ -223,43 +176,30 @@ fun ReplyBox(
                 onValueChange = onReplyChange,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(end = 8.dp)
-                    .focusRequester(focusRequester), // Attach FocusRequester
-                placeholder = {
-                    Text(
-                        text = "Type a message...",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                    )
-                },
-                shape = RoundedCornerShape(8.dp),
-                maxLines = 3,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                    unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                )
+                    .focusRequester(focusRequester),
+                placeholder = { Text("Type a message...") },
+                maxLines = 3
             )
+
+            Spacer(modifier = Modifier.width(8.dp))
 
             IconButton(
                 onClick = {
                     if (reply.isNotBlank()) {
                         onSentReply()
+                        keyboardController?.hide()
                     }
                 },
                 modifier = Modifier
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary)
+                    .scale(sendButtonScale.value)
+                    .background(MaterialTheme.colorScheme.primary, CircleShape)
                     .size(48.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Send,
+                    Icons.Default.Send,
                     contentDescription = "Send",
-                    tint = Color.White
+                    tint = Color.White,
+                    modifier = Modifier.padding(8.dp)
                 )
             }
         }
@@ -267,8 +207,6 @@ fun ReplyBox(
 }
 
 
-// ChatHeader - Displays the chat header at the top of the screen with user details and a back button.
-// It includes a profile picture, user name, and optional online status.
 @Composable
 fun ChatHeader(
     name: String, // The name of the chat user
@@ -332,54 +270,3 @@ fun ChatHeader(
         }
     }
 }
-@Composable
-fun MessageBox(modifier: Modifier, chatMessage: List<Message>, currentUserId: String) {
-    LazyColumn(modifier = modifier.padding(8.dp)) {
-        items(chatMessage) { msg ->
-            val isCurrentUser = msg.sendBy == currentUserId
-            val alignment = if (isCurrentUser) Alignment.End else Alignment.Start
-            val backgroundColor = if (isCurrentUser) Color(0xFF00BFAE) else Color(0xFF6200EE)
-            val textColor = Color.White
-
-            val messageState = remember { MutableTransitionState(false) }
-            LaunchedEffect(msg) {
-                messageState.targetState = true
-            }
-
-            AnimatedVisibility(
-                visibleState = messageState,
-                enter = slideInHorizontally(
-                    initialOffsetX = { if (isCurrentUser) it else -it },
-                    animationSpec = tween(durationMillis = 500)
-                ) + fadeIn(animationSpec = tween(durationMillis = 500)),
-                exit = fadeOut(animationSpec = tween(durationMillis = 500))
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = if (isCurrentUser) Arrangement.End else Arrangement.Start
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = backgroundColor,
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .padding(12.dp)
-                            .widthIn(max = 300.dp)
-                    ) {
-                        Text(
-                            text = msg.message ?: "",
-                            color = textColor,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-

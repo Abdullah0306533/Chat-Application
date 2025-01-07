@@ -35,7 +35,7 @@ import com.example.chattingapp.navigateTo
 @Composable
 fun SignUpScreen(navController: NavController, vm: LCViewModel) {
 
-    CheckSignIn(vm,navController)
+    CheckSignIn(vm, navController)
 
     var isPhoneNumberFocused by remember { mutableStateOf(false) } // Track if the phone number field is focused
     val nameState = remember { mutableStateOf(TextFieldValue()) }
@@ -175,10 +175,18 @@ fun SignUpScreen(navController: NavController, vm: LCViewModel) {
                 }
             }
 
+            // Spacer between Sign Up and Google Sign-In Button
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Google Sign-In Button
+            GoogleSignInButton(onClick = {
+               //TODO
+            })
+
             // Login Navigation Text
             Spacer(modifier = Modifier.height(16.dp))
             TextButton(
-                onClick = { navigateTo(navController,ScreenDestinations.Login.route) }
+                onClick = { navigateTo(navController, ScreenDestinations.Login.route) }
             ) {
                 Text(
                     text = "Already have an account? Log In",
@@ -188,8 +196,39 @@ fun SignUpScreen(navController: NavController, vm: LCViewModel) {
             }
         }
     }
-    if(vm.inProcess.value){
-        CommonProgressBar()
 
+    if (vm.inProcess.value) {
+        CommonProgressBar()
     }
 }
+
+@Composable
+fun GoogleSignInButton(onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .padding(horizontal = 24.dp) // Make sure button is centered
+            .padding(top = 16.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFF4285F4), // Google blue color
+            contentColor = Color.White
+        )
+    ) {
+        // Google Sign-In button image (Google logo from res/drawable)
+        Image(
+            painter = painterResource(id = R.drawable.google),
+            contentDescription = "Google Sign-In",
+            modifier = Modifier.size(24.dp)
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        // Text to indicate the action
+        Text(text = "Sign Up with Google")
+    }
+}
+
+

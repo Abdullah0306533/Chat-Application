@@ -29,3 +29,12 @@ object ToastUtil {
         }
     }
 }
+object GetContext{
+    private var appContext: Context? = null
+
+    fun init(context: Context) {
+        appContext = context // Store application context
+    }
+    fun getContext():Context?= appContext
+
+}

@@ -28,7 +28,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.content.MediaType.Companion.Text
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -198,14 +202,22 @@ fun TitleText(text: String) {
     Text(text, fontSize = 35.sp, modifier = Modifier.padding(8.dp))
 }
 @Composable
-fun CommonRow(imageUrl: String?, name: String?, onItemClick: () -> Unit) {
+fun CommonRow(
+    imageUrl: String?,
+    name: String?,
+    onDeleteClick: () -> Unit,
+    onItemClick: () -> Unit
+     // Callback for delete action
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(75.dp)
             .clickable { onItemClick.invoke() },
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween // Aligns the delete button to the end
     ) {
+        // User Image
         CommonImage(
             data = imageUrl,
             modifier = Modifier
@@ -214,13 +226,30 @@ fun CommonRow(imageUrl: String?, name: String?, onItemClick: () -> Unit) {
                 .size(50.dp)
                 .background(Color.Red)
         )
+
+        // User Name
         Text(
             text = name ?: "Unknown User",
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(4.dp)
         )
+
+        // Delete Button
+        IconButton(
+            onClick = onDeleteClick,
+            modifier = Modifier
+                .padding(8.dp)
+                .size(24.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Delete,
+                contentDescription = "Delete",
+                tint = Color.Red
+            )
+        }
     }
 }
+
 
 
 

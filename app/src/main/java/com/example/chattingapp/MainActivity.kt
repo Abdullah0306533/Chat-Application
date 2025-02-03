@@ -80,6 +80,8 @@ class MainActivity : ComponentActivity() {
         // Fetch ViewModel inside composable
         val vm = hiltViewModel<LCViewModel>()
 
+
+
         // Determine start destination based on sign-in state
         val startDestination = if (!vm.signIn.value) {
             ScreenDestinations.SignUp.route

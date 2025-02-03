@@ -71,7 +71,7 @@ fun ChatListScreen(navController: NavController, vm: LCViewModel) {
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(bottom = 60.dp)
                     ) {
-                        items(chats) { chat ->
+                        items(chats, key = { it.chatId!! }) { chat -> // Added key for better optimization
                             val chatUser = if (chat.user1.userId == userData?.userId) chat.user2 else chat.user1
 
                             AnimatedVisibility(
@@ -90,7 +90,8 @@ fun ChatListScreen(navController: NavController, vm: LCViewModel) {
                                 ) {
                                     CommonRow(
                                         imageUrl = chatUser.image,
-                                        name = chatUser.userName
+                                        name = chatUser.userName,
+                                        onDeleteClick = { vm.onDeleteChat(chat.chatId) }
                                     ) {
                                         chat.chatId?.let {
                                             navigateTo(navController, ScreenDestinations.SingleChat.createRoute(it))
@@ -100,6 +101,7 @@ fun ChatListScreen(navController: NavController, vm: LCViewModel) {
                             }
                         }
                     }
+
                 }
                 Spacer(modifier = Modifier.height(56.dp))
             }

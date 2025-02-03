@@ -51,36 +51,49 @@ fun SingleChatScreen(
     }
 
     val focusRequester = remember { FocusRequester() }
-    val myUser = vm.userData.value
+    val myUser = vm.userData.value // Get the current logged-in user
     val currentChat = vm.chats.value.first { it.chatId == chatId }
+
+    // Correct identification of user1 and user2
     val chatUser = if (myUser?.userId == currentChat.user1.userId) currentChat.user2 else currentChat.user1
+
+    // Fetch chat messages
     val chatMessages = vm.chatMessages
 
+    // Set up lazy list state to control scrolling
     val scrollState = rememberLazyListState()
 
+    // Ensure that messages are sorted by timestamp
+    val sortedMessages = chatMessages.value.sortedBy { it.timeStamp }
+
     LaunchedEffect(chatMessages.value.size) {
-        vm.populateMessages(chatId)
-        scrollState.scrollToItem(0)
+        vm.populateMessages(chatId) // Populate messages when the screen is loaded
+        scrollState.scrollToItem(0)  // Automatically scroll to the top
     }
 
-    BackHandler { vm.dePopulateMessage()
-        navController.popBackStack()}
+    BackHandler {
+        vm.dePopulateMessage()
+        navController.popBackStack()
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(bottom = 8.dp)
     ) {
+        // Header with user's profile and name
         ChatHeader(name = chatUser.userName ?: "", imageUrl = chatUser.image ?: "") {
             navController.popBackStack()
             vm.dePopulateMessage()
         }
 
+        // MessageBox to display all the chat messages
         MessageBox(
             modifier = Modifier.weight(1f).padding(8.dp),
-            chatMessages.value,
-            myUser?.userId ?: "",
-            scrollState
+            chatMessages = sortedMessages, // Pass the sorted messages
+            currentUserId =  myUser?.userId ?: "", // Pass the current user ID to differentiate messages
+            scrollState = scrollState // Pass scroll state to MessageBox
         )
 
+        // Reply box to send a message
         ReplyBox(
             onReplyChange = { reply = it },
             onSentReply = onSentReply,
@@ -90,21 +103,41 @@ fun SingleChatScreen(
     }
 }
 
+
+
+
 @Composable
 fun MessageBox(modifier: Modifier, chatMessages: List<Message>, currentUserId: String, scrollState: LazyListState) {
+    val isLoading = remember { mutableStateOf(false) }
+
+    LaunchedEffect(chatMessages.size) {
+        isLoading.value = chatMessages.isEmpty()
+    }
+
+    if (isLoading.value) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.1f)
+                .wrapContentHeight(Alignment.CenterVertically)
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center),
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+
     LazyColumn(
-        modifier = modifier,
-        state = scrollState,
-        reverseLayout = true
+        modifier = modifier.padding(8.dp),
+        reverseLayout = true,  // This ensures the latest messages are at the bottom.
+        state = scrollState
     ) {
         items(chatMessages.reversed()) { msg ->
             val isCurrentUser = msg.sendBy == currentUserId
             val alignment = if (isCurrentUser) Alignment.End else Alignment.Start
             val backgroundColor = if (isCurrentUser) Color(0xFF00BFAE) else Color(0xFF6200EE)
             val textColor = Color.White
-
-            val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
-            val time = sdf.format(Date(msg.timeStamp))
 
             val messageState = remember { MutableTransitionState(false) }
             LaunchedEffect(msg) {
@@ -113,26 +146,46 @@ fun MessageBox(modifier: Modifier, chatMessages: List<Message>, currentUserId: S
 
             AnimatedVisibility(
                 visibleState = messageState,
-                enter = slideInVertically(
-                    initialOffsetY = { it },
+                enter = slideInHorizontally(
+                    initialOffsetX = { if (isCurrentUser) it else -it },
                     animationSpec = tween(durationMillis = 500)
                 ) + fadeIn(animationSpec = tween(durationMillis = 500)),
                 exit = fadeOut(animationSpec = tween(durationMillis = 500))
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    horizontalArrangement = if (isCurrentUser) Arrangement.End else Arrangement.Start
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .wrapContentWidth(alignment), // Ensure alignment is applied correctly
+                    verticalAlignment = Alignment.CenterVertically // Ensures the content is centered vertically within the row
                 ) {
                     Box(
                         modifier = Modifier
-                            .background(backgroundColor, RoundedCornerShape(12.dp))
-                            .padding(12.dp)
-                            .widthIn(max = 300.dp)
+                            .background(
+                                color = backgroundColor,
+                                shape = RoundedCornerShape(12.dp)  // Reduced corner radius
+                            )
+                            .shadow(0.dp, RoundedCornerShape(12.dp))  // Reduced shadow
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .widthIn(max = 320.dp)
+                            .clip(RoundedCornerShape(12.dp))  // Consistent with reduced corner radius
                     ) {
                         Column {
-                            Text(msg.message ?: "", color = textColor, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = msg.message ?: "",
+                                color = textColor,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(bottom = 4.dp),
+                            )
+
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(time, color = textColor.copy(0.7f), fontSize = 12.sp)
+
+                            val dateFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
+                            Text(
+                                text = dateFormat.format(Date(msg.timeStamp)),
+                                color = textColor.copy(alpha = 0.7f),
+                                fontSize = 12.sp
+                            )
                         }
                     }
                 }

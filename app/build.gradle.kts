@@ -92,4 +92,5 @@ dependencies {
     // Coil's OkHttp integration (optional, for network operations)
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
 
+
     }

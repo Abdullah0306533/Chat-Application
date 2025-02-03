@@ -43,6 +43,7 @@ firebase-auth = { group = "com.google.firebase", name = "firebase-auth", version
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore", version.ref = "firebaseFirestore" }
 lottie-compose = { module = "com.airbnb.android:lottie-compose", version.ref = "lottieVersion" }
 firebase-storage = { group = "com.google.firebase", name = "firebase-storage", version.ref = "firebaseStorage" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "composeBom" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

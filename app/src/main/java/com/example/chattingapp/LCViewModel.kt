@@ -232,6 +232,7 @@ class LCViewModel @Inject constructor(
 
 
 
+
     // Retrieve User Data
     /**
      * Retrieves user data from Firestore based on the provided UID and updates the `userData` state.
@@ -408,20 +409,30 @@ class LCViewModel @Inject constructor(
     }
 
     fun populateMessages(chatId: String) {
-        inProcessChatMessage.value = true;
-        currentChatMessageListener = db.collection(CHATS).document(chatId).collection(MESSAGE)
+        inProcessChatMessage.value = true
+        currentChatMessageListener = db.collection(CHATS).document(chatId)
+            .collection(MESSAGE)
+            .orderBy("timeStamp") // Firestore query to sort messages by timestamp
             .addSnapshotListener { value, error ->
-                if (error!=null){
+                if (error != null) {
                     handleException(error)
+                    inProcessChatMessage.value = false
+                    return@addSnapshotListener
                 }
-                if (value!=null){
-                    chatMessages.value=value.documents.mapNotNull {
-                        it.toObject<Message>()
-                    }.sortedBy { it.timeStamp }
-                    inProcessChatMessage.value=false
+
+                if (value != null) {
+                    chatMessages.value = value.documents.mapNotNull { document ->
+                        document.toObject<Message>()
+                    }.sortedBy { it.timeStamp } // Sort again just in case if Firestore doesn't return them ordered
+
+                    // You can also use this if `timeStamp` is a `Long` type:
+                    chatMessages.value = chatMessages.value.sortedBy { it.timeStamp }
+
+                    inProcessChatMessage.value = false
                 }
             }
     }
+
     fun dePopulateMessage(){
         chatMessages.value= listOf()
         currentChatMessageListener=null
@@ -453,6 +464,39 @@ class LCViewModel @Inject constructor(
         }
     }
 
+    fun onDeleteChat(chatId: String?) {
+        if (chatId.isNullOrEmpty()) {
+            handleException(customMessage = "Chat ID is null or empty")
+            return
+        }
+
+        // Show loading state while deleting
+        inProcessChat.value = true
+
+        // Delete the chat document from Firestore
+        db.collection(CHATS).document(chatId).delete()
+            .addOnSuccessListener {
+                eventMutableState.value = Event("Chat deleted successfully")
+                inProcessChat.value = false
+                populateChats() // Refresh the chat list after deletion
+            }
+            .addOnFailureListener { exception ->
+                handleException(exception, customMessage = "Failed to delete chat")
+                inProcessChat.value = false
+            }
+        db.collection(CHATS).document(chatId).delete()
+            .addOnSuccessListener {
+                eventMutableState.value = Event("Chat deleted successfully")
+                inProcessChat.value = false
+                populateChats() // Refresh the chat list after deletion
+            }
+            .addOnFailureListener { exception ->
+                handleException(exception, customMessage = "Failed to delete chat")
+                inProcessChat.value = false
+            }
+    }
+
+
     /* fun saveProfileImage(uri: Uri, context: Context) {
          val uid = auth.currentUser?.uid
          if (uid == null) {
@@ -479,6 +523,7 @@ class LCViewModel @Inject constructor(
              handleException(it, "Failed to upload image")
          }
      }*/
+
 
 
 
